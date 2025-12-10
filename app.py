@@ -58,6 +58,12 @@ WEIGHTS = {
 MIN_OTM_PERCENT = 2.5  # Minimum 2.5% out-of-the-money for short strikes
 MIN_SPREAD_WIDTH_DOLLARS = 5.0  # Minimum $5 width between short and long strikes
 
+# Covered Call filtering criteria
+MAX_DELTA_COVERED_CALL = 0.15  # Maximum delta for covered call (lower = more OTM)
+MIN_OPEN_INTEREST = 200  # Minimum open interest for liquidity
+MAX_BID_ASK_SPREAD_PCT = 4.0  # Maximum bid-ask spread as % of mid-price
+MIN_WEEKLY_INCOME_PCT = 0.25  # Minimum 0.25% per week income requirement
+
 # Advanced probability calculation parameters
 RISK_FREE_RATE = 0.045  # Current risk-free rate (4.5% - approximate 10Y Treasury)
 IV_WEIGHT = 0.7  # Weight for implied volatility in blend
@@ -786,17 +792,46 @@ def covered_call(symbol, expiry=None):
 
     calls_sorted = calls.sort_values('strike')
     min_short_strike = spot * (1 + MIN_OTM_PERCENT / 100)
-    calls_above_target = calls_sorted[calls_sorted['strike'] >= min_short_strike]
+    calls_above_target = calls_sorted[calls_sorted['strike'] >= min_short_strike].copy()
+    
+    # Apply covered call filters
+    if not calls_above_target.empty:
+        # Filter 1: Delta <= 0.15 (if available)
+        if 'inTheMoney' in calls_above_target.columns:
+            calls_above_target = calls_above_target[calls_above_target['inTheMoney'] == False]
+        
+        # Filter 2: Open Interest > 200
+        if 'openInterest' in calls_above_target.columns:
+            calls_above_target['openInterest'] = calls_above_target['openInterest'].fillna(0)
+            calls_above_target = calls_above_target[calls_above_target['openInterest'] > MIN_OPEN_INTEREST]
+        
+        # Filter 3: Bid-Ask Spread < 4%
+        if 'bid' in calls_above_target.columns and 'ask' in calls_above_target.columns:
+            calls_above_target['bid'] = calls_above_target['bid'].fillna(0)
+            calls_above_target['ask'] = calls_above_target['ask'].fillna(0)
+            calls_above_target['mid'] = (calls_above_target['bid'] + calls_above_target['ask']) / 2
+            calls_above_target['spread_pct'] = ((calls_above_target['ask'] - calls_above_target['bid']) / calls_above_target['mid'].replace(0, 1)) * 100
+            calls_above_target = calls_above_target[calls_above_target['spread_pct'] < MAX_BID_ASK_SPREAD_PCT]
+        
+        # Filter 4: Minimum weekly income requirement (0.25% per week)
+        # Calculate days to expiry for income check
+        exp_date = datetime.strptime(expiry, '%Y-%m-%d').date()
+        dte = (exp_date - date.today()).days
+        weeks = dte / 7.0 if dte > 0 else 1
+        if 'bid' in calls_above_target.columns and spot:
+            calls_above_target['income_pct'] = (calls_above_target['bid'] / spot) * 100
+            calls_above_target['weekly_income_pct'] = calls_above_target['income_pct'] / weeks
+            calls_above_target = calls_above_target[calls_above_target['weekly_income_pct'] >= MIN_WEEKLY_INCOME_PCT]
     
     if calls_above_target.empty:
-        # fallback: use strikes above spot
+        # fallback: use strikes above spot without filters
         calls_above = calls_sorted[calls_sorted['strike'] > spot]
         if calls_above.empty:
             short = calls_sorted.iloc[-1]
         else:
             short = calls_above.iloc[0]
     else:
-        # Pick strike closest to target OTM level
+        # Pick strike closest to target OTM level that meets all criteria
         short = calls_above_target.iloc[0]
 
     short_bid = float(short.get('bid', 0.0) or short.get('lastPrice', 0.0) or 0.0)
