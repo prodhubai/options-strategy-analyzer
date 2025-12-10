@@ -2,6 +2,7 @@ services:
   - type: web
     name: stratify
     env: python
+    rootDir: .
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120
     envVars:
