@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 import os
 from functools import wraps
 import secrets
+import time
+import json
 
 load_dotenv()
 
@@ -69,6 +71,24 @@ RISK_FREE_RATE = 0.045  # Current risk-free rate (4.5% - approximate 10Y Treasur
 IV_WEIGHT = 0.7  # Weight for implied volatility in blend
 HV_WEIGHT = 0.3  # Weight for historical volatility in blend
 MIN_VOL_FLOOR = 0.20  # Minimum 20% volatility floor (realistic for stocks)
+
+def safe_yfinance_call(func, *args, **kwargs):
+    """Wrapper to handle yfinance API errors with retry logic"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except (json.JSONDecodeError, ValueError) as e:
+            if attempt < max_retries - 1:
+                time.sleep(1)  # Wait 1 second before retry
+                continue
+            raise Exception(f"Yahoo Finance API error: {str(e)}. Please try again in a moment.")
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            raise Exception(f"Data fetch error: {str(e)}")
+    raise Exception("Failed to fetch data after multiple attempts")
 
 def blend_volatility(implied_vol, historical_vol, iv_weight=IV_WEIGHT, hv_weight=HV_WEIGHT):
     """Blend implied and historical volatility with configurable weights"""
@@ -685,8 +705,12 @@ def analyze_all_strategies(symbol, max_days=21, top_n=10):
     Evaluate all strategy types across all available expirations within max_days.
     Returns top 5 opportunities ranked by composite score.
     """
-    t = yf.Ticker(symbol)
-    exps = t.options
+    try:
+        t = safe_yfinance_call(yf.Ticker, symbol)
+        exps = safe_yfinance_call(lambda: t.options)
+    except Exception as e:
+        return {'symbol': symbol, 'strategies': [], 'error': str(e)}
+    
     if not exps:
         return {'symbol': symbol, 'strategies': [], 'error': 'no options available'}
     
