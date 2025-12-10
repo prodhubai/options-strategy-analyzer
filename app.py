@@ -12,6 +12,8 @@ from functools import wraps
 import secrets
 import time
 import json
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+import signal
 
 load_dotenv()
 
@@ -95,22 +97,44 @@ def get_alpha_vantage_quote(symbol):
         print(f"Alpha Vantage fallback failed: {e}")
         return None
 
-def safe_yfinance_call(func, *args, **kwargs):
-    """Wrapper to handle yfinance API errors with retry logic"""
-    max_retries = 3
+def safe_yfinance_call(func, *args, timeout=30, **kwargs):
+    """Wrapper to handle yfinance API errors with retry logic and timeout"""
+    max_retries = 2  # Reduced from 3 to fail faster
+    
+    def _execute():
+        return func(*args, **kwargs)
+    
     for attempt in range(max_retries):
         try:
-            return func(*args, **kwargs)
+            # Use ThreadPoolExecutor for timeout
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_execute)
+                try:
+                    result = future.result(timeout=timeout)
+                    return result
+                except FuturesTimeoutError:
+                    print(f"Timeout on attempt {attempt + 1}")
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+                        continue
+                    raise Exception(f"Request timed out after {timeout} seconds. Yahoo Finance may be down.")
         except (json.JSONDecodeError, ValueError) as e:
+            print(f"JSON error on attempt {attempt + 1}: {e}")
             if attempt < max_retries - 1:
-                time.sleep(2)  # Wait 2 seconds before retry
+                time.sleep(1)
                 continue
-            raise Exception(f"Yahoo Finance is temporarily unavailable. Please wait 30 seconds and try again.")
+            raise Exception(f"Yahoo Finance returned invalid data. Please try again in a minute.")
         except Exception as e:
+            error_str = str(e)
+            print(f"Error on attempt {attempt + 1}: {error_str}")
             if attempt < max_retries - 1:
-                time.sleep(2)
+                time.sleep(1)
                 continue
-            raise Exception(f"Unable to fetch data: {str(e)}")
+            # If we have a specific error message, return it
+            if "timed out" in error_str.lower() or "timeout" in error_str.lower():
+                raise Exception(f"Yahoo Finance is not responding. Please try again in 1-2 minutes.")
+            raise Exception(f"Unable to fetch data: {error_str}")
+    
     raise Exception("Yahoo Finance is temporarily unavailable. Please try again shortly.")
 
 def blend_volatility(implied_vol, historical_vol, iv_weight=IV_WEIGHT, hv_weight=HV_WEIGHT):
@@ -391,7 +415,7 @@ def calculate_composite_score(probability, roi, risk_score):
 
 
 def analyze_bull_put_spread(symbol, expiry=None):
-    t = yf.Ticker(symbol)
+    t = safe_yfinance_call(yf.Ticker, symbol, timeout=20)
 
     # Calculate RSI
     current_rsi = get_current_rsi(t)
@@ -562,7 +586,7 @@ def analyze_bull_put_spread(symbol, expiry=None):
 
 def analyze_bear_call_spread(symbol, expiry=None):
     # mirror of bull put for calls: sell call just above spot, buy next higher call
-    t = yf.Ticker(symbol)
+    t = safe_yfinance_call(yf.Ticker, symbol, timeout=20)
     
     # Calculate RSI
     current_rsi = get_current_rsi(t)
@@ -817,7 +841,7 @@ def analyze_all_strategies(symbol, max_days=21, top_n=10):
 
 
 def covered_call(symbol, expiry=None):
-    t = yf.Ticker(symbol)
+    t = safe_yfinance_call(yf.Ticker, symbol, timeout=20)
     
     # Calculate RSI
     current_rsi = get_current_rsi(t)
@@ -981,7 +1005,7 @@ def covered_call(symbol, expiry=None):
 
 
 def cash_secured_put(symbol, expiry=None):
-    t = yf.Ticker(symbol)
+    t = safe_yfinance_call(yf.Ticker, symbol, timeout=20)
     
     # Calculate RSI
     current_rsi = get_current_rsi(t)
@@ -1116,7 +1140,7 @@ def cash_secured_put(symbol, expiry=None):
 
 def long_call(symbol, expiry=None):
     # simple long call (buy one call) - report cost and prob ITM
-    t = yf.Ticker(symbol)
+    t = safe_yfinance_call(yf.Ticker, symbol, timeout=20)
     
     # Calculate RSI
     current_rsi = get_current_rsi(t)
@@ -1254,7 +1278,7 @@ def long_call(symbol, expiry=None):
 
 def bull_call_spread(symbol, expiry=None):
     # buy lower strike call, sell higher strike call
-    t = yf.Ticker(symbol)
+    t = safe_yfinance_call(yf.Ticker, symbol, timeout=20)
     
     # Calculate RSI
     current_rsi = get_current_rsi(t)
@@ -1409,7 +1433,7 @@ def bull_call_spread(symbol, expiry=None):
 
 def iron_condor(symbol, expiry=None):
     # combine a bull put spread and a bear call spread with one strike gap
-    t = yf.Ticker(symbol)
+    t = safe_yfinance_call(yf.Ticker, symbol, timeout=20)
     
     # Calculate RSI
     current_rsi = get_current_rsi(t)
@@ -1779,7 +1803,7 @@ def api_chart(symbol):
     yf_period = period_map.get(period, '3y')
     
     try:
-        ticker = yf.Ticker(symbol.upper())
+        ticker = safe_yfinance_call(yf.Ticker, symbol.upper(), timeout=20)
         
         # Get historical data
         hist = ticker.history(period=yf_period)
@@ -1962,7 +1986,7 @@ def webhook_single_strategy():
         spread_width = data.get('spread_width', 5)
         
         # Get stock data
-        ticker = yf.Ticker(symbol)
+        ticker = safe_yfinance_call(yf.Ticker, symbol, timeout=30)
         hist = ticker.history(period='3mo')
         
         if hist.empty:
