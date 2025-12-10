@@ -1,0 +1,417 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stock Chart - Stratify</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --surface:#ffffff;
+      --muted:#f8fafc;
+      --border:#e2e8f0;
+      --text:#0f172a;
+      --subtle:#475569;
+      --primary:#2563eb;
+      --primary-700:#1d4ed8;
+      --accent:#7c3aed;
+      --success:#16a34a;
+      --danger:#dc2626;
+      --shadow:0 6px 24px rgba(2,6,23,0.06), 0 2px 8px rgba(2,6,23,0.06);
+      --radius:12px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0; padding:0}
+    body{
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      color:var(--text); background:linear-gradient(180deg, #f8fafc 0%, #ffffff 60%);
+    }
+    .container{max-width:1400px; margin:0 auto; padding:24px}
+    .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .header{display:flex; align-items:center; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--border)}
+    .brand{display:flex; align-items:center; gap:12px}
+    .brand-badge{
+      width:36px; height:36px; border-radius:10px; display:grid; place-items:center; color:#fff;
+      background:conic-gradient(from 210deg, var(--primary), var(--accent));
+      box-shadow:0 6px 20px rgba(124,58,237,0.25);
+      font-weight:700;
+    }
+    .brand-title{font-size:20px; font-weight:700; letter-spacing:0.2px}
+    .brand-sub{font-size:12px; color:var(--subtle)}
+    .top-actions{display:flex; align-items:center; gap:10px}
+    .input{height:38px; padding:0 12px; border:1px solid var(--border); border-radius:10px; outline:none; transition:box-shadow .2s,border-color .2s}
+    .input:focus{border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,0.15)}
+    .btn{height:38px; padding:0 14px; border-radius:10px; border:1px solid transparent; cursor:pointer; font-weight:600; transition:all .15s; font-size:14px}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+    .btn-primary{background:var(--primary); color:#fff}
+    .btn-primary:hover:not(:disabled){background:var(--primary-700)}
+    .btn-secondary{background:#eef2ff; color:#3730a3; border-color:#c7d2fe}
+    .btn-secondary:hover{background:#e0e7ff}
+    .btn-group{display:flex; gap:4px}
+    .btn-group .btn{border-radius:8px; padding:0 12px; font-size:13px; height:34px}
+    .btn-group .btn.active{background:var(--primary); color:#fff}
+    .content{padding:24px}
+    .chart-container{position:relative; height:500px; margin-bottom:24px}
+    .rsi-container{position:relative; height:150px; margin-top:24px}
+    .info-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px}
+    .info-card{padding:16px; background:var(--muted); border-radius:10px; border:1px solid var(--border)}
+    .info-label{font-size:12px; color:var(--subtle); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px}
+    .info-value{font-size:20px; font-weight:700; color:var(--text)}
+    .info-sub{font-size:12px; color:var(--subtle); margin-top:4px}
+    .back-link{color:var(--primary); text-decoration:none; display:inline-flex; align-items:center; gap:6px; margin-bottom:16px}
+    .back-link:hover{text-decoration:underline}
+    #status{padding:12px; background:#fef3c7; border:1px solid #fde047; border-radius:8px; color:#854d0e; font-size:14px; margin-bottom:16px; display:none}
+    #status.error{background:#fee2e2; border-color:#fca5a5; color:#991b1b}
+    #status.success{background:#d1fae5; border-color:#6ee7b7; color:#065f46}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back to Options Explorer
+    </a>
+    
+    <div class="card">
+      <div class="header">
+        <div class="brand">
+          <div class="brand-badge">📈</div>
+          <div>
+            <div class="brand-title" id="chart-title">Stock Chart</div>
+            <div class="brand-sub" id="company-info">Loading...</div>
+          </div>
+        </div>
+        <div class="top-actions">
+          <input id="symbol-input" class="input" placeholder="Enter symbol e.g. AAPL" style="width:200px" />
+          <button id="load-btn" class="btn btn-primary">Load Chart</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <div id="status"></div>
+
+        <div class="btn-group" id="period-selector">
+          <button class="btn" data-period="1d">1D</button>
+          <button class="btn" data-period="5d">5D</button>
+          <button class="btn" data-period="1mo">1M</button>
+          <button class="btn" data-period="3mo">3M</button>
+          <button class="btn" data-period="6mo">6M</button>
+          <button class="btn" data-period="1y">1Y</button>
+          <button class="btn" data-period="2y">2Y</button>
+          <button class="btn active" data-period="3y">3Y</button>
+        </div>
+
+        <div class="info-grid" id="info-grid" style="display:none; margin-top:20px"></div>
+
+        <div class="chart-container">
+          <canvas id="priceChart"></canvas>
+        </div>
+
+        <div class="rsi-container">
+          <canvas id="rsiChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let priceChart = null;
+    let rsiChart = null;
+    let currentSymbol = '';
+    let currentPeriod = '3y';
+
+    const symbolInput = document.getElementById('symbol-input');
+    const loadBtn = document.getElementById('load-btn');
+    const periodButtons = document.querySelectorAll('#period-selector .btn');
+    const status = document.getElementById('status');
+    const infoGrid = document.getElementById('info-grid');
+    const chartTitle = document.getElementById('chart-title');
+    const companyInfo = document.getElementById('company-info');
+
+    // Get symbol from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSymbol = urlParams.get('symbol');
+    if (urlSymbol) {
+      symbolInput.value = urlSymbol.toUpperCase();
+      currentSymbol = urlSymbol.toUpperCase();
+      loadChart();
+    }
+
+    loadBtn.addEventListener('click', () => {
+      const symbol = symbolInput.value.trim().toUpperCase();
+      if (symbol) {
+        currentSymbol = symbol;
+        loadChart();
+      }
+    });
+
+    symbolInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        loadBtn.click();
+      }
+    });
+
+    periodButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        periodButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentPeriod = btn.dataset.period;
+        if (currentSymbol) {
+          loadChart();
+        }
+      });
+    });
+
+    function showStatus(message, type = 'info') {
+      status.textContent = message;
+      status.className = type;
+      status.style.display = 'block';
+    }
+
+    function hideStatus() {
+      status.style.display = 'none';
+    }
+
+    async function loadChart() {
+      if (!currentSymbol) return;
+
+      showStatus(`Loading chart data for ${currentSymbol}...`, 'info');
+      loadBtn.disabled = true;
+
+      try {
+        const response = await fetch(`/api/chart/${currentSymbol}?period=${currentPeriod}`);
+        const data = await response.json();
+
+        if (data.error) {
+          showStatus(`Error: ${data.error}`, 'error');
+          loadBtn.disabled = false;
+          return;
+        }
+
+        hideStatus();
+        renderCharts(data);
+        renderInfo(data);
+        
+        chartTitle.textContent = `${data.symbol} - ${data.company_name || data.symbol}`;
+        companyInfo.textContent = `${data.sector || 'N/A'} · ${data.industry || 'N/A'}`;
+        
+        loadBtn.disabled = false;
+      } catch (error) {
+        showStatus(`Error loading chart: ${error.message}`, 'error');
+        loadBtn.disabled = false;
+      }
+    }
+
+    function renderInfo(data) {
+      const intrinsicDiff = data.intrinsic_value ? 
+        ((data.current_price - data.intrinsic_value) / data.intrinsic_value * 100).toFixed(2) : null;
+      
+      const intrinsicStatus = intrinsicDiff ? (
+        intrinsicDiff > 0 ? `${intrinsicDiff}% overvalued` : `${Math.abs(intrinsicDiff)}% undervalued`
+      ) : 'N/A';
+
+      const rsiLatest = data.rsi[data.rsi.length - 1];
+      const rsiStatus = rsiLatest ? (
+        rsiLatest > 70 ? 'Overbought' : rsiLatest < 30 ? 'Oversold' : 'Neutral'
+      ) : 'N/A';
+
+      infoGrid.innerHTML = `
+        <div class="info-card">
+          <div class="info-label">Current Price</div>
+          <div class="info-value">$${data.current_price.toFixed(2)}</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">Intrinsic Value</div>
+          <div class="info-value">${data.intrinsic_value ? '$' + data.intrinsic_value.toFixed(2) : 'N/A'}</div>
+          <div class="info-sub">${intrinsicStatus}</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">RSI (14)</div>
+          <div class="info-value">${rsiLatest ? rsiLatest.toFixed(1) : 'N/A'}</div>
+          <div class="info-sub">${rsiStatus}</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">Period</div>
+          <div class="info-value">${currentPeriod.toUpperCase()}</div>
+          <div class="info-sub">${data.dates.length} data points</div>
+        </div>
+      `;
+      infoGrid.style.display = 'grid';
+    }
+
+    function renderCharts(data) {
+      const ctx = document.getElementById('priceChart').getContext('2d');
+      const rsiCtx = document.getElementById('rsiChart').getContext('2d');
+
+      // Destroy existing charts
+      if (priceChart) priceChart.destroy();
+      if (rsiChart) rsiChart.destroy();
+
+      // Price Chart
+      priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.dates,
+          datasets: [
+            {
+              label: 'Price',
+              data: data.prices,
+              borderColor: '#2563eb',
+              backgroundColor: 'rgba(37, 99, 235, 0.1)',
+              borderWidth: 2,
+              pointRadius: 0,
+              fill: true,
+              tension: 0.1
+            },
+            {
+              label: 'Bollinger Upper',
+              data: data.bollinger_upper,
+              borderColor: '#dc2626',
+              borderWidth: 1,
+              borderDash: [5, 5],
+              pointRadius: 0,
+              fill: false
+            },
+            {
+              label: 'Bollinger Middle (SMA)',
+              data: data.bollinger_middle,
+              borderColor: '#64748b',
+              borderWidth: 1.5,
+              pointRadius: 0,
+              fill: false
+            },
+            {
+              label: 'Bollinger Lower',
+              data: data.bollinger_lower,
+              borderColor: '#16a34a',
+              borderWidth: 1,
+              borderDash: [5, 5],
+              pointRadius: 0,
+              fill: false
+            },
+            ...(data.intrinsic_value ? [{
+              label: 'Intrinsic Value',
+              data: new Array(data.dates.length).fill(data.intrinsic_value),
+              borderColor: '#7c3aed',
+              borderWidth: 2,
+              borderDash: [10, 5],
+              pointRadius: 0,
+              fill: false
+            }] : [])
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: `${data.symbol} - Stock Price with Bollinger Bands`,
+              font: { size: 16, weight: 'bold' }
+            },
+            legend: {
+              position: 'top',
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  let label = context.dataset.label || '';
+                  if (label) {
+                    label += ': ';
+                  }
+                  if (context.parsed.y !== null) {
+                    label += '$' + context.parsed.y.toFixed(2);
+                  }
+                  return label;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: false,
+              ticks: {
+                callback: function(value) {
+                  return '$' + value.toFixed(2);
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // RSI Chart
+      rsiChart = new Chart(rsiCtx, {
+        type: 'line',
+        data: {
+          labels: data.dates,
+          datasets: [
+            {
+              label: 'RSI',
+              data: data.rsi,
+              borderColor: '#7c3aed',
+              backgroundColor: 'rgba(124, 58, 237, 0.1)',
+              borderWidth: 2,
+              pointRadius: 0,
+              fill: true
+            },
+            {
+              label: 'Overbought (70)',
+              data: new Array(data.dates.length).fill(70),
+              borderColor: '#dc2626',
+              borderWidth: 1,
+              borderDash: [5, 5],
+              pointRadius: 0,
+              fill: false
+            },
+            {
+              label: 'Oversold (30)',
+              data: new Array(data.dates.length).fill(30),
+              borderColor: '#16a34a',
+              borderWidth: 1,
+              borderDash: [5, 5],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Relative Strength Index (RSI)',
+              font: { size: 14, weight: 'bold' }
+            },
+            legend: {
+              position: 'top',
+            }
+          },
+          scales: {
+            y: {
+              min: 0,
+              max: 100,
+              ticks: {
+                stepSize: 10
+              }
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

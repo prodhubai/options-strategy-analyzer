@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - Stratify</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Stratify Brand Colors */
+            --clarity-navy: #0A1F44;
+            --arctic-white: #F7F9FC;
+            --soft-slate: #6E7A8A;
+            --mint-signal: #43D9B8;
+            --border-light: #E1E4E8;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--clarity-navy) 0%, #0d2d5e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 440px;
+            width: 100%;
+            padding: 48px 40px;
+            text-align: center;
+        }
+
+        .logo-badge {
+            width: 80px;
+            height: 80px;
+            background: var(--clarity-navy);
+            border: 4px solid var(--mint-signal);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .logo-badge span {
+            font-size: 40px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: -1px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--clarity-navy);
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .tagline {
+            font-size: 16px;
+            color: var(--soft-slate);
+            margin-bottom: 40px;
+            font-weight: 400;
+        }
+
+        .welcome-text {
+            font-size: 18px;
+            color: var(--clarity-navy);
+            margin-bottom: 32px;
+            font-weight: 500;
+        }
+
+        .google-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: white;
+            color: var(--clarity-navy);
+            border: 2px solid var(--border-light);
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            width: 100%;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .google-btn:hover {
+            border-color: var(--mint-signal);
+            box-shadow: 0 4px 12px rgba(67, 217, 184, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .google-btn:active {
+            transform: translateY(0);
+        }
+
+        .google-icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 32px 0;
+            color: var(--soft-slate);
+            font-size: 14px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-light);
+        }
+
+        .divider::before {
+            margin-right: 16px;
+        }
+
+        .divider::after {
+            margin-left: 16px;
+        }
+
+        .features {
+            text-align: left;
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: var(--soft-slate);
+        }
+
+        .feature-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .check-icon {
+            width: 20px;
+            height: 20px;
+            background: var(--mint-signal);
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 2px;
+        }
+
+        .check-icon::after {
+            content: '✓';
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .footer-text {
+            margin-top: 32px;
+            font-size: 13px;
+            color: var(--soft-slate);
+            line-height: 1.6;
+        }
+
+        .footer-text a {
+            color: var(--mint-signal);
+            text-decoration: none;
+        }
+
+        .footer-text a:hover {
+            text-decoration: underline;
+        }
+
+        .setup-notice {
+            background: #FFF4E6;
+            border: 2px solid #FFB84D;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .setup-notice h3 {
+            color: #D97706;
+            font-size: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .setup-notice ol {
+            margin: 12px 0 12px 20px;
+            color: var(--clarity-navy);
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .setup-notice code {
+            background: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            border: 1px solid #E5E7EB;
+        }
+
+        .demo-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: var(--mint-signal);
+            color: var(--clarity-navy);
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            width: 100%;
+            font-family: 'Inter', sans-serif;
+            margin-bottom: 16px;
+        }
+
+        .demo-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo-badge">
+            <span>S</span>
+        </div>
+        
+        <h1>Stratify</h1>
+        <p class="tagline">Options Strategy Intelligence</p>
+        
+        {% if oauth_configured == False %}
+        <div class="setup-notice">
+            <h3>⚙️ OAuth Setup Required</h3>
+            <p style="margin-bottom: 12px; font-size: 14px; color: var(--soft-slate);">To enable Google Sign-In, follow these steps:</p>
+            <ol>
+                <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color: var(--mint-signal);">Google Cloud Console</a></li>
+                <li>Create OAuth 2.0 credentials</li>
+                <li>Add redirect URI: <code id="redirect-uri">{{ request.url_root }}auth/callback</code></li>
+                <li>Update <code>.env</code> file with your credentials</li>
+                <li>Restart the server</li>
+            </ol>
+            <p style="margin-top: 12px; font-size: 13px; color: var(--soft-slate);">
+                See <code>OAUTH_SETUP.md</code> for detailed instructions.
+            </p>
+        </div>
+
+        <a href="/" class="demo-btn">
+            🚀 Try Demo Mode (No Login Required)
+        </a>
+        {% else %}
+        <p class="welcome-text">Sign in to access your dashboard</p>
+        
+        <a href="/auth/google" class="google-btn">
+            <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Sign in with Google
+        </a>
+
+        <div class="divider">or explore features</div>
+
+        <div class="features">
+            <div class="feature-item">
+                <div class="check-icon"></div>
+                <div>Real-time options strategy analysis across 7 proven strategies</div>
+            </div>
+            <div class="feature-item">
+                <div class="check-icon"></div>
+                <div>Advanced probability calculations using Black-Scholes model</div>
+            </div>
+            <div class="feature-item">
+                <div class="check-icon"></div>
+                <div>Interactive charts with RSI and Bollinger Bands indicators</div>
+            </div>
+            <div class="feature-item">
+                <div class="check-icon"></div>
+                <div>DCF-based intrinsic value analysis with CAPM discount rates</div>
+            </div>
+        </div>
+
+        <p class="footer-text">
+            By signing in, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+        </p>
+        {% endif %}
+    </div>
+</body>
+</html>

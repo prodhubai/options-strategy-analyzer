@@ -1,0 +1,1457 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>Stratify - Options Strategy Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root{
+        --bg:#F7F9FC;        /* Arctic White */
+        --surface:#ffffff;
+        --muted:#F7F9FC;
+        --border:#E3E9F2;    /* Light border */
+        --text:#0A1F44;      /* Clarity Navy */
+        --subtle:#6E7A8A;    /* Soft Slate */
+        --primary:#43D9B8;   /* Mint Signal */
+        --primary-hover:#38C4A6;
+        --accent:#43D9B8;    /* Mint Signal */
+        --warning:#FFB84D;   /* Amber Attention */
+        --danger:#FF6B6B;    /* Coral Risk */
+        --shadow:none;       /* Use borders instead */
+        --radius:16px;       /* Soft rounded */
+      }
+      *{box-sizing:border-box}
+      html,body{height:100%}
+      body{
+        margin:0; padding:0; font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+        color:var(--text); background:linear-gradient(180deg, #f8fafc 0%, #ffffff 60%);
+      }
+      .container{max-width:1140px; margin:0 auto; padding:24px}
+      .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius)}
+      .header{display:flex; align-items:center; justify-content:space-between; padding:18px 24px}
+      .brand{display:flex; align-items:center; gap:12px}
+      .brand-badge{
+        width:36px; height:36px; border-radius:8px; display:grid; place-items:center; color:#fff;
+        background:var(--text);
+        border:2px solid var(--primary);
+        font-weight:700;
+        font-size:18px;
+      }
+      .brand-title{font-size:20px; font-weight:700; letter-spacing:0.2px}
+      .brand-sub{font-size:12px; color:var(--subtle)}
+      .top-actions{display:flex; align-items:center; gap:10px}
+      .input{height:38px; padding:0 12px; border:1px solid var(--border); border-radius:10px; outline:none; transition:box-shadow .2s,border-color .2s}
+      .input:focus{border-color:var(--primary); box-shadow:0 0 0 3px rgba(67,217,184,0.15)}
+      .btn{height:38px; padding:0 14px; border-radius:10px; border:1px solid transparent; cursor:pointer; font-weight:600; transition:all .15s}
+      .btn:disabled{opacity:.6; cursor:not-allowed}
+      .btn-primary{background:var(--primary); color:var(--text); font-weight:600}
+      .btn-primary:hover{background:var(--primary-hover)}
+      .btn-secondary{background:transparent; color:var(--text); border:1.5px solid var(--text)}
+      .btn-secondary:hover{background:var(--muted)}
+      .badge{background:#eef; color:#024; padding:6px 10px; border-radius:12px; font-size:0.9rem; display:none}
+      .chips{display:flex; flex-wrap:wrap; gap:8px; padding:12px 16px; border-top:1px solid var(--border)}
+      .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:var(--muted); border:1px solid var(--border)}
+      .chip button{height:22px; padding:0 8px; border-radius:999px; border:1px solid var(--border); background:#fff; cursor:pointer}
+      .panel{padding:16px 20px; border-top:1px solid var(--border)}
+      .sliders{display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start}
+      .sliders > div{display:flex; flex-direction:column; gap:4px}
+      .sliders label{color:var(--subtle); font-size:13px; margin:0; display:block}
+      input[type=range]{accent-color:var(--primary); margin:0}
+      table{border-collapse:separate; border-spacing:0; width:100%}
+      thead th{position:sticky; top:0; background:var(--surface); border-bottom:2px solid var(--border); font-weight:600; font-size:12px; color:var(--subtle); text-transform:uppercase; letter-spacing:.05em; z-index:10}
+      tbody td, thead th{padding:12px 12px}
+      tbody tr{border-bottom:1px solid var(--border)}
+      tbody tr:nth-child(odd){background:#fcfdff}
+      td.num{text-align:right; font-variant-numeric:tabular-nums}
+      .table-wrap{border-top:1px solid var(--border); max-height:none; overflow:visible}
+      .kpi{display:inline-block; padding:2px 8px; border-radius:999px; background:#E8FAF6; color:var(--text); border:1px solid var(--primary); font-weight:600}
+      .stock-symbol{cursor:pointer; color:var(--primary); text-decoration:underline; font-weight:600}
+      .stock-symbol:hover{color:var(--primary-hover)}
+      
+      /* Modal styles */
+      .modal{display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px)}
+      .modal.active{display:flex; align-items:center; justify-content:center}
+      .modal-content{background:var(--surface); border-radius:var(--radius); width:90%; max-width:1200px; max-height:90vh; overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+      .modal-header{display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border-bottom:1px solid var(--border)}
+      .modal-close{width:32px; height:32px; border-radius:8px; border:1px solid var(--border); background:#fff; cursor:pointer; display:grid; place-items:center; transition:all .15s}
+      .modal-close:hover{background:#f1f5f9}
+      .modal-body{padding:24px}
+      .btn-group{display:flex; gap:4px; margin-bottom:16px}
+      .btn-group .btn{border-radius:8px; padding:0 12px; font-size:13px; height:34px}
+      .btn-group .btn.active{background:var(--primary); color:#fff}
+      .info-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:20px}
+      .info-card{padding:14px; background:var(--muted); border-radius:10px; border:1px solid var(--border)}
+      .info-label{font-size:11px; color:var(--subtle); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px}
+      .info-value{font-size:18px; font-weight:700; color:var(--text)}
+      .info-sub{font-size:11px; color:var(--subtle); margin-top:2px}
+      .chart-container{position:relative; height:400px; margin-bottom:20px}
+      .rsi-container{position:relative; height:120px}
+      #chart-status{padding:12px; background:#fef3c7; border:1px solid #fde047; border-radius:8px; color:#854d0e; font-size:14px; margin-bottom:16px; display:none}
+      #chart-status.error{background:#fee2e2; border-color:#fca5a5; color:#991b1b}
+      
+      /* Tooltip styles */
+      .tooltip-container{position:relative; display:inline-block}
+      .tooltip-icon{display:inline-block; margin-left:4px; width:14px; height:14px; border-radius:50%; background:var(--primary); color:#fff; text-align:center; font-size:10px; line-height:14px; cursor:help; font-weight:700}
+      .pnl-chart-icon{display:inline-block; cursor:pointer; font-size:18px; transition:transform .2s; user-select:none}
+      .pnl-chart-icon:hover{transform:scale(1.2)}
+      .pnl-modal-canvas{width:100%; height:400px}
+      .pnl-legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; font-size:13px}
+      .pnl-legend-item{display:flex; align-items:center; gap:6px}
+      .pnl-legend-color{width:16px; height:3px; border-radius:2px}
+      .tooltip-text{visibility:hidden; width:320px; background:var(--text); color:#fff; text-align:left; border-radius:8px; padding:12px; position:absolute; z-index:100; bottom:125%; left:50%; margin-left:-160px; opacity:0; transition:opacity .3s; font-size:11px; line-height:1.5; font-weight:400; text-transform:none; letter-spacing:normal; box-shadow:0 4px 12px rgba(0,0,0,0.3)}
+      .tooltip-text::after{content:""; position:absolute; top:100%; left:50%; margin-left:-5px; border-width:5px; border-style:solid; border-color:var(--text) transparent transparent transparent}
+      .tooltip-container:hover .tooltip-text{visibility:visible; opacity:1}
+      
+      /* Loading animation */
+      .loading-container{display:inline-flex; align-items:center; gap:10px; color:var(--primary); font-weight:500}
+      .spinner{display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .loading-dots{display:inline-block}
+      .loading-dots::after{content:'...'; animation:dots 1.5s steps(4,end) infinite}
+      @keyframes dots{0%,20%{content:''}40%{content:'.'}60%{content:'..'}80%,100%{content:'...'}}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <div class="header">
+          <div class="brand">
+            <div class="brand-badge">S</div>
+            <div>
+              <div class="brand-title">Stratify</div>
+              <div class="brand-sub">Options Strategy Intelligence</div>
+            </div>
+          </div>
+          <div class="top-actions">
+            <div style="display:flex; align-items:center; gap:12px; margin-right:auto; margin-left:20px">
+              {% if user %}
+              <img src="{{ user.picture }}" alt="{{ user.name }}" style="width:32px; height:32px; border-radius:50%; border:2px solid var(--primary)">
+              <span style="font-size:14px; color:var(--text); font-weight:500">{{ user.name }}</span>
+              {% endif %}
+            </div>
+            <input id="symbol-input" class="input" placeholder="Enter symbol e.g. AAPL" style="width:260px" />
+            <input id="days-input" class="input" type="number" placeholder="Days ahead" value="21" min="1" max="365" style="width:120px" title="Find opportunities within this many days" />
+            <button id="add-symbol" class="btn btn-secondary">Add</button>
+            <button id="fetch" class="btn btn-primary">Fetch & Analyze</button>
+            {% if user %}
+            <a href="/logout" class="btn btn-secondary" style="text-decoration:none; display:flex; align-items:center; justify-content:center">Logout</a>
+            {% endif %}
+            <span id="last-fetched" class="badge" title="When results were last fetched (PST/PDT)">Last fetched: <span id="last-fetched-text">--</span></span>
+          </div>
+        </div>
+        <div class="chips" id="selected"></div>
+
+        <div class="panel">
+          <div id="status" style="margin-bottom:10px"></div>
+          <div class="sliders">
+            <div>
+              <label>Min ROI %: <span id="roi-val">1</span></label>
+              <input id="roi" type="range" min="0" max="200" value="1" style="width:200px" />
+            </div>
+            <div>
+              <label>Min Probability %: <span id="prob-val">50</span></label>
+              <input id="prob" type="range" min="0" max="100" value="50" style="width:200px" />
+            </div>
+            <div>
+              <label>Max RSI: <span id="rsi-val">100</span></label>
+              <input id="rsi-max" type="range" min="0" max="100" value="100" style="width:200px" />
+            </div>
+            <div>
+              <label>Top Results: <span id="topn-val">20</span></label>
+              <input id="topn" type="range" min="1" max="50" value="20" style="width:200px" />
+            </div>
+            <div>
+              <label>OTM % (Puts/Calls): <span id="otm-val">2.5</span>%
+                <span class="tooltip-container">
+                  <span class="tooltip-icon">?</span>
+                  <span class="tooltip-text">
+                    <strong>Out-of-the-Money Percentage:</strong><br>
+                    How far from current price to place strikes<br><br>
+                    <strong>Examples:</strong><br>
+                    • 2.5% = Moderately safe (default)<br>
+                    • 5% = Very safe, higher probability<br>
+                    • 1% = Aggressive, lower probability<br><br>
+                    Higher % = Wider ranges, higher win rates
+                  </span>
+                </span>
+              </label>
+              <input id="otm" type="range" min="0.5" max="10" step="0.5" value="2.5" style="width:200px" />
+            </div>
+            <div>
+              <label>Spread Width ($): <span id="spread-val">5</span>
+                <span class="tooltip-container">
+                  <span class="tooltip-icon">?</span>
+                  <span class="tooltip-text">
+                    <strong>Spread Width (Dollars):</strong><br>
+                    Distance between short and long strikes<br><br>
+                    <strong>Examples:</strong><br>
+                    • $5 = Standard spread (default)<br>
+                    • $10-$20 = Wide spread, lower risk<br>
+                    • $2-$3 = Narrow spread, higher risk<br><br>
+                    Wider = Lower max loss but lower credit
+                  </span>
+                </span>
+              </label>
+              <input id="spread" type="range" min="1" max="50" step="1" value="5" style="width:200px" />
+            </div>
+          </div>
+        </div>
+
+        
+
+        <div class="table-wrap">
+          <table id="results-table">
+            <thead>
+              <tr>
+                <th id="th-stock" style="cursor:pointer">Stock</th>
+                <th id="th-strategy" style="cursor:pointer">Strategy</th>
+                <th id="th-score" style="cursor:pointer">
+                  Score
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">?</span>
+                    <span class="tooltip-text">
+                      <strong>Composite Score Formula:</strong><br>
+                      Score = (Probability × 70%) + (ROI × 20%) + (Risk × 10%)<br><br>
+                      <strong>Weights:</strong><br>
+                      • Probability: 70% - Success chance<br>
+                      • ROI: 20% - Return on investment<br>
+                      • Risk: 10% - Distance from current price<br><br>
+                      Higher scores = better opportunities
+                    </span>
+                  </span>
+                </th>
+                <th id="th-roi" style="cursor:pointer">ROI %</th>
+                <th id="th-prob" style="cursor:pointer">
+                  Probability %
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">?</span>
+                    <span class="tooltip-text">
+                      <strong>Probability of Profit Calculation</strong><br><br>
+                      <strong>Key Factors:</strong><br>
+                      • Market volatility (60-90 day)<br>
+                      • Implied volatility from options<br>
+                      • Time to expiration<br>
+                      • Strike price distance<br>
+                      • Premium collected/paid<br>
+                      • Current risk-free rate<br>
+                      • Dividend adjustments<br><br>
+                      <strong>Two Probabilities:</strong><br>
+                      • <em>Profit > $0</em> (displayed) - Any profit<br>
+                      • <em>Max Profit</em> - Full profit potential<br><br>
+                      Uses advanced statistical models with<br>
+                      conservative assumptions for accuracy.
+                    </span>
+                  </span>
+                </th>
+                <th id="th-rsi" style="cursor:pointer">RSI</th>
+                <th id="th-days" style="cursor:pointer">Days</th>
+                <th id="th-expiry" style="cursor:pointer">Expiry</th>
+                <th id="th-sell" style="cursor:pointer">Sell Strike</th>
+                <th id="th-buy" style="cursor:pointer">Buy Strike</th>
+                <th id="th-credit" style="cursor:pointer">Credit</th>
+                <th id="th-loss" style="cursor:pointer">Max Loss</th>
+                <th>P&L</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart Modal -->
+    <div id="chart-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="brand">
+            <div class="brand-badge">📈</div>
+            <div>
+              <div class="brand-title" id="modal-chart-title">Stock Chart</div>
+              <div class="brand-sub" id="modal-company-info">Loading...</div>
+            </div>
+          </div>
+          <button id="modal-close" class="modal-close">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="chart-status"></div>
+          
+          <div class="btn-group" id="modal-period-selector">
+            <button class="btn" data-period="1d">1D</button>
+            <button class="btn" data-period="5d">5D</button>
+            <button class="btn" data-period="1mo">1M</button>
+            <button class="btn" data-period="3mo">3M</button>
+            <button class="btn" data-period="6mo">6M</button>
+            <button class="btn" data-period="1y">1Y</button>
+            <button class="btn" data-period="2y">2Y</button>
+            <button class="btn active" data-period="3y">3Y</button>
+          </div>
+
+          <div class="info-grid" id="modal-info-grid" style="display:none"></div>
+
+          <div class="chart-container">
+            <canvas id="modal-price-chart"></canvas>
+          </div>
+
+          <div class="rsi-container">
+            <canvas id="modal-rsi-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- P&L Chart Modal -->
+    <div id="pnl-modal" class="modal">
+      <div class="modal-content" style="max-width:900px">
+        <div class="modal-header">
+          <div>
+            <h3 id="pnl-modal-title" style="margin:0; font-size:18px">Profit & Loss Diagram</h3>
+            <div id="pnl-modal-subtitle" style="font-size:13px; color:var(--subtle); margin-top:4px"></div>
+          </div>
+          <button id="pnl-modal-close" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div id="pnl-info-grid" class="info-grid">
+            <!-- Strategy details will be populated here -->
+          </div>
+          <div class="chart-container" style="height:400px">
+            <canvas id="pnl-chart-canvas"></canvas>
+          </div>
+          <div class="pnl-legend" id="pnl-legend">
+            <!-- Legend items will be populated here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Version: 2024-12-04 Configurable OTM and Spread Settings
+      const btn = document.getElementById('fetch')
+      const addBtn = document.getElementById('add-symbol')
+      const input = document.getElementById('symbol-input')
+      const daysInput = document.getElementById('days-input')
+      const status = document.getElementById('status')
+      const table = document.getElementById('results-table')
+      const tbody = table.querySelector('tbody')
+      const selectedDiv = document.getElementById('selected')
+      const roiSlider = document.getElementById('roi')
+      const probSlider = document.getElementById('prob')
+      const roiVal = document.getElementById('roi-val')
+      const probVal = document.getElementById('prob-val')
+      const topnSlider = document.getElementById('topn')
+      const topnVal = document.getElementById('topn-val')
+      const rsiMaxSlider = document.getElementById('rsi-max')
+      const rsiVal = document.getElementById('rsi-val')
+      const otmSlider = document.getElementById('otm')
+      const otmVal = document.getElementById('otm-val')
+      const spreadSlider = document.getElementById('spread')
+      const spreadVal = document.getElementById('spread-val')
+      let currentSortKey = 'score'
+      let currentSortDir = 'desc' // 'asc' | 'desc'
+
+      function updateHeaderIndicators(){
+        const arrow = currentSortDir === 'desc' ? '▼' : '▲'
+        const headers = {
+          'stock': {id: 'th-stock', text: 'Stock'},
+          'strategy': {id: 'th-strategy', text: 'Strategy'},
+          'score': {id: 'th-score', text: 'Score'},
+          'roi': {id: 'th-roi', text: 'ROI %'},
+          'probability': {id: 'th-prob', text: 'Probability %'},
+          'rsi': {id: 'th-rsi', text: 'RSI'},
+          'days': {id: 'th-days', text: 'Days'},
+          'expiry': {id: 'th-expiry', text: 'Expiry'},
+          'sell': {id: 'th-sell', text: 'Sell Strike'},
+          'buy': {id: 'th-buy', text: 'Buy Strike'},
+          'credit': {id: 'th-credit', text: 'Credit'},
+          'loss': {id: 'th-loss', text: 'Max Loss'}
+        }
+        
+        for(const [key, {id, text}] of Object.entries(headers)){
+          const el = document.getElementById(id)
+          if(el){
+            if(key === 'score' || key === 'probability'){
+              // Preserve tooltip for score and probability columns
+              const tooltip = el.querySelector('.tooltip-container')
+              el.textContent = text + (currentSortKey === key ? ' ' + arrow : '')
+              if(tooltip) el.appendChild(tooltip)
+            } else {
+              el.textContent = text + (currentSortKey === key ? ' ' + arrow : '')
+            }
+          }
+        }
+      }
+
+      function setSort(key){
+        if(currentSortKey === key){
+          currentSortDir = currentSortDir === 'desc' ? 'asc' : 'desc'
+        } else {
+          currentSortKey = key
+          currentSortDir = 'desc'
+        }
+        updateHeaderIndicators()
+        renderCachedResults()
+      }
+
+      let selected = []
+      let cachedResults = []
+
+      // Load selected stocks from localStorage
+      function loadSelectedFromStorage() {
+        const stored = localStorage.getItem('selectedStocks')
+        if (stored) {
+          try {
+            const stocks = JSON.parse(stored)
+            if (Array.isArray(stocks)) {
+              selected = stocks
+              input.value = selected.join(', ')
+              renderSelected()
+            }
+          } catch(e) {
+            console.error('Error loading stocks from localStorage:', e)
+          }
+        }
+      }
+
+      // Save selected stocks to localStorage
+      function saveSelectedToStorage() {
+        localStorage.setItem('selectedStocks', JSON.stringify(selected))
+      }
+
+      function renderSelected(){
+        selectedDiv.innerHTML = ''
+        for(const s of selected){
+          const chip = document.createElement('span')
+          chip.style.border = '1px solid #ccc'
+          chip.style.padding = '4px 8px'
+          chip.style.marginRight = '6px'
+          chip.style.borderRadius = '12px'
+          chip.textContent = s
+          const rem = document.createElement('button')
+          rem.textContent = 'x'
+          rem.style.marginLeft = '6px'
+          rem.addEventListener('click', ()=>{ 
+            selected = selected.filter(x=>x!==s)
+            input.value = selected.join(', ')
+            saveSelectedToStorage()
+            renderSelected() 
+          })
+          chip.appendChild(rem)
+          selectedDiv.appendChild(chip)
+        }
+      }
+
+      addBtn.addEventListener('click', ()=>{
+        const v = input.value.trim().toUpperCase()
+        if(!v) return
+        const symbols = v.split(',').map(s => s.trim()).filter(Boolean)
+        for(const sym of symbols){
+          if(!selected.includes(sym)) selected.push(sym)
+        }
+        input.value = selected.join(', ')
+        saveSelectedToStorage()
+        renderSelected()
+      })
+
+      // Load saved stocks on page load
+      loadSelectedFromStorage()
+
+      input.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter') { addBtn.click(); e.preventDefault() }
+      })
+
+      roiSlider.addEventListener('input', ()=>{ roiVal.textContent = roiSlider.value; renderCachedResults() })
+      probSlider.addEventListener('input', ()=>{ probVal.textContent = probSlider.value; renderCachedResults() })
+      topnSlider.addEventListener('input', ()=>{ topnVal.textContent = topnSlider.value; renderCachedResults() })
+      otmSlider.addEventListener('input', ()=>{ otmVal.textContent = otmSlider.value })
+      spreadSlider.addEventListener('input', ()=>{ spreadVal.textContent = spreadSlider.value })
+      
+      rsiMaxSlider.addEventListener('input', ()=>{ 
+        rsiVal.textContent = rsiMaxSlider.value
+        renderCachedResults() 
+      })
+
+      document.getElementById('th-stock').addEventListener('click', ()=> setSort('stock'))
+      document.getElementById('th-strategy').addEventListener('click', ()=> setSort('strategy'))
+      document.getElementById('th-score').addEventListener('click', ()=> setSort('score'))
+      document.getElementById('th-roi').addEventListener('click', ()=> setSort('roi'))
+      document.getElementById('th-prob').addEventListener('click', ()=> setSort('probability'))
+      document.getElementById('th-rsi').addEventListener('click', ()=> setSort('rsi'))
+      document.getElementById('th-days').addEventListener('click', ()=> setSort('days'))
+      document.getElementById('th-expiry').addEventListener('click', ()=> setSort('expiry'))
+      document.getElementById('th-sell').addEventListener('click', ()=> setSort('sell'))
+      document.getElementById('th-buy').addEventListener('click', ()=> setSort('buy'))
+      document.getElementById('th-credit').addEventListener('click', ()=> setSort('credit'))
+      document.getElementById('th-loss').addEventListener('click', ()=> setSort('loss'))
+
+      function fmtExpiry(ymd){
+        if(!ymd) return ''
+        const d = new Date(ymd + 'T00:00:00')
+        const opts = { month: 'short', day: 'numeric' }
+        return d.toLocaleDateString(undefined, opts)
+      }
+
+      function passFilters(r){
+        const minRoi = Number(roiSlider.value)
+        const minProb = Number(probSlider.value)
+        const maxDays = Number(daysInput.value)
+        const maxRsi = Number(rsiMaxSlider.value)
+        const roi = Number(r.roi_percent || 0)
+        const prob = Number(r.probability_success_percent || 0)
+        const daysToExpiry = Number(r.days_to_expiry || 0)
+        const rsi = r.rsi
+        
+        // RSI filter: if RSI is not available (null), include it (don't filter out)
+        // Filter shows stocks with RSI <= maxRsi (useful for finding oversold/neutral stocks)
+        const rsiPass = rsi === null || rsi === undefined || rsi <= maxRsi
+        
+        return roi >= minRoi && prob >= minProb && daysToExpiry <= maxDays && rsiPass
+      }
+
+      function formatFetched(ts){
+        if(!ts) return ''
+        try{
+          const date = new Date(ts)
+          const datePart = new Intl.DateTimeFormat('en-US', {month:'2-digit', day:'2-digit', year:'2-digit', timeZone:'America/Los_Angeles'}).format(date)
+          const timePart = new Intl.DateTimeFormat('en-US', {hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'America/Los_Angeles', timeZoneName:'short'}).format(date)
+          return `${datePart} ${timePart}`
+        }catch(e){ return ts }
+      }
+
+      function fmt2(v){
+        if(v === null || v === undefined) return ''
+        const n = Number(v)
+        return Number.isFinite(n) ? n.toFixed(2) : ''
+      }
+
+      btn.addEventListener('click', async () => {
+        if(selected.length === 0){ status.textContent = 'Add at least one symbol.'; return }
+        const maxDays = Number(daysInput.value) || 21
+        const otmPercent = Number(otmSlider.value) || 2.5
+        const spreadWidth = Number(spreadSlider.value) || 5
+        status.innerHTML = '<div class="loading-container"><span class="spinner"></span><span>Analyzing strategies<span class="loading-dots"></span></span></div>'
+        tbody.innerHTML = ''
+        try{
+          const resp = await fetch('/api/analyze', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              symbols: selected, 
+              max_days: maxDays, 
+              top_n: Number(topnSlider.value) || 20,
+              otm_percent: otmPercent,
+              spread_width: spreadWidth
+            })
+          })
+          const json = await resp.json()
+          console.log('API Response:', json)
+          status.textContent = ''
+          cachedResults = json.results || []
+          console.log('Cached results:', cachedResults.length, 'symbols')
+          renderCachedResults()
+        }catch(err){
+          console.error('Fetch error:', err)
+          status.innerHTML = `<span style="color:var(--danger)">Error fetching data: ${err.message}</span>`
+        }
+      })
+
+      function renderCachedResults(){
+        tbody.innerHTML = ''
+        const results = cachedResults
+        let latestTs = null
+        console.log('Rendering results:', results.length, 'symbols')
+        if(results.length === 0){ status.textContent = 'No results'; return }
+        status.textContent = ''
+        const sortBy = currentSortKey
+        const sortDir = currentSortDir
+        
+        // Collect all strategies from all symbols
+        let allStrategies = []
+        for(const sym of results){
+            if(sym.error){
+              allStrategies.push({symbol: sym.symbol, error: sym.error})
+              continue
+            }
+            const strategies = sym.strategies || []
+            console.log(`${sym.symbol}: ${strategies.length} strategies`)
+            for(const r of strategies){
+              allStrategies.push({...r, symbol: sym.symbol})
+            }
+        }
+        
+        // Sort all strategies together
+        const getVal = (r) => {
+          if(r.error) return currentSortDir === 'desc' ? -Infinity : Infinity  // Errors go to bottom
+          
+          switch(sortBy) {
+            case 'stock': return r.symbol || ''
+            case 'strategy': return r.strategy || ''
+            case 'probability': return Number(r.probability_success_percent || 0)
+            case 'roi': return Number(r.roi_percent || 0)
+            case 'rsi': return Number(r.rsi || 0)
+            case 'days': return Number(r.days_to_expiry || 0)
+            case 'expiry': return r.expiry || ''
+            case 'sell': return parseFloat((r.short_strike || '0').toString().replace(/[pc]/g, '')) || 0
+            case 'buy': return parseFloat((r.long_strike || '0').toString().replace(/[pc]/g, '')) || 0
+            case 'credit': return Number(r.credit || 0)
+            case 'loss': return Number(r.max_loss || 0)
+            default: return Number(r.composite_score || 0)  // score
+          }
+        }
+        
+        allStrategies.sort((a,b) => {
+          const va = getVal(a), vb = getVal(b)
+          
+          // Handle string sorting
+          if(typeof va === 'string' && typeof vb === 'string') {
+            return sortDir === 'desc' ? vb.localeCompare(va) : va.localeCompare(vb)
+          }
+          
+          // Handle numeric sorting
+          return sortDir === 'desc' ? (vb - va) : (va - vb)
+        })
+        
+        console.log('Total strategies before filtering:', allStrategies.length)
+        
+        // Get top N value from slider
+        const topN = Number(topnSlider.value) || 20
+        let displayedCount = 0
+        let filteredCount = 0
+        
+        // Render sorted strategies
+        for(const r of allStrategies){
+            if(r.error){
+              const tr = document.createElement('tr')
+              tr.innerHTML = `<td>${r.symbol}</td><td colspan=10 style="color:red">${r.error}</td>`
+              tbody.appendChild(tr)
+              continue
+            }
+            
+            const ts = r.data_timestamp || r.price_timestamp
+            if(ts && (!latestTs || ts > latestTs)) latestTs = ts
+            if(!passFilters(r)) {
+              filteredCount++
+              continue
+            }
+            
+            // Stop rendering if we've reached the top N limit
+            if(displayedCount >= topN) continue
+            displayedCount++
+            
+            const tr = document.createElement('tr')
+            
+            // Format RSI with color coding
+            let rsiDisplay = '-'
+            let rsiColor = ''
+            if (r.rsi !== null && r.rsi !== undefined) {
+              const rsiVal = Number(r.rsi)
+              rsiDisplay = rsiVal.toFixed(1)
+              if (rsiVal >= 70) rsiColor = 'color:#FF6B6B' // Overbought - red
+              else if (rsiVal <= 30) rsiColor = 'color:#43D9B8' // Oversold - green
+            }
+            
+            tr.innerHTML = `<td><span class="stock-symbol" data-symbol="${r.symbol}">${r.symbol}</span> (${fmt2(r.spot)})</td>
+                <td>${r.strategy}</td>
+                <td class="num"><span class="kpi">${r.composite_score !== null && r.composite_score !== undefined ? fmt2(r.composite_score) : '-'}</span></td>
+                <td class="roi">${r.roi_percent !== null && r.roi_percent !== undefined ? fmt2(r.roi_percent) : '-'}</td>
+                <td class="prob">${r.probability_success_percent !== null && r.probability_success_percent !== undefined ? fmt2(r.probability_success_percent) : '-'}</td>
+                <td style="${rsiColor}; font-weight:${rsiColor ? '600' : 'normal'}">${rsiDisplay}</td>
+                <td>${r.days_to_expiry}</td>
+                <td>${fmtExpiry(r.expiry)}</td>
+                <td>${r.short_strike || ''}</td>
+                <td>${r.long_strike || ''}</td>
+                <td>$${fmt2(r.credit)}</td>
+                <td>$${fmt2(r.max_loss)}</td>
+                <td style="text-align:center"><span class="pnl-chart-icon" data-strategy='${JSON.stringify(r)}'>📊</span></td>`
+              
+            // Add click handler to stock symbol
+            const symbolEl = tr.querySelector('.stock-symbol')
+            symbolEl.addEventListener('click', (e) => {
+              e.stopPropagation()
+              openChartModal(r.symbol)
+            })
+            
+            // Add click handler to P&L chart icon
+            const pnlIcon = tr.querySelector('.pnl-chart-icon')
+            if(pnlIcon) {
+              pnlIcon.addEventListener('click', (e) => {
+                e.stopPropagation()
+                const strategyData = JSON.parse(pnlIcon.getAttribute('data-strategy'))
+                openPnLModal(strategyData)
+              })
+            }
+              
+            tbody.appendChild(tr)
+          }
+        console.log(`Displayed: ${displayedCount}, Filtered out: ${filteredCount}, Total: ${allStrategies.length}`)
+        if(displayedCount === 0 && filteredCount > 0) {
+          status.innerHTML = `<span style="color:var(--warning)">No results match your filters. ${filteredCount} strategies were filtered out. Try adjusting ROI, Probability, or RSI filters.</span>`
+        }
+        setLastFetched(latestTs)
+      }
+
+      function setLastFetched(ts){
+        const badge = document.getElementById('last-fetched')
+        const text = document.getElementById('last-fetched-text')
+        if(!ts){ badge.style.display = 'none'; text.textContent='--'; return }
+        try{
+          const date = new Date(ts)
+          const datePart = new Intl.DateTimeFormat('en-US', {month:'2-digit', day:'2-digit', year:'2-digit', timeZone:'America/Los_Angeles'}).format(date)
+          const timePart = new Intl.DateTimeFormat('en-US', {hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'America/Los_Angeles', timeZoneName:'short'}).format(date)
+          text.textContent = `${datePart} ${timePart}`
+        }catch(e){ text.textContent = ts }
+        badge.style.display = 'inline-block'
+      }
+      // Initialize sort header arrows on load
+      updateHeaderIndicators()
+
+      // Chart Modal Code
+      let modalPriceChart = null
+      let modalRsiChart = null
+      let modalCurrentSymbol = ''
+      let modalCurrentPeriod = '3y'
+
+      const chartModal = document.getElementById('chart-modal')
+      const modalClose = document.getElementById('modal-close')
+      const modalPeriodButtons = document.querySelectorAll('#modal-period-selector .btn')
+      const chartStatus = document.getElementById('chart-status')
+      const modalInfoGrid = document.getElementById('modal-info-grid')
+      const modalChartTitle = document.getElementById('modal-chart-title')
+      const modalCompanyInfo = document.getElementById('modal-company-info')
+
+      function openChartModal(symbol) {
+        modalCurrentSymbol = symbol.toUpperCase()
+        chartModal.classList.add('active')
+        document.body.style.overflow = 'hidden'
+        loadModalChart()
+      }
+
+      function closeChartModal() {
+        chartModal.classList.remove('active')
+        document.body.style.overflow = 'auto'
+        if (modalPriceChart) {
+          modalPriceChart.destroy()
+          modalPriceChart = null
+        }
+        if (modalRsiChart) {
+          modalRsiChart.destroy()
+          modalRsiChart = null
+        }
+      }
+
+      modalClose.addEventListener('click', closeChartModal)
+      chartModal.addEventListener('click', (e) => {
+        if (e.target === chartModal) closeChartModal()
+      })
+
+      modalPeriodButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          modalPeriodButtons.forEach(b => b.classList.remove('active'))
+          btn.classList.add('active')
+          modalCurrentPeriod = btn.dataset.period
+          if (modalCurrentSymbol) {
+            loadModalChart()
+          }
+        })
+      })
+
+      function showChartStatus(message, type = 'info') {
+        chartStatus.textContent = message
+        chartStatus.className = type
+        chartStatus.style.display = 'block'
+      }
+
+      function hideChartStatus() {
+        chartStatus.style.display = 'none'
+      }
+
+      async function loadModalChart() {
+        if (!modalCurrentSymbol) return
+
+        showChartStatus(`Loading chart data for ${modalCurrentSymbol}...`, 'info')
+
+        try {
+          const response = await fetch(`/api/chart/${modalCurrentSymbol}?period=${modalCurrentPeriod}`)
+          const data = await response.json()
+
+          if (data.error) {
+            showChartStatus(`Error: ${data.error}`, 'error')
+            return
+          }
+
+          hideChartStatus()
+          renderModalCharts(data)
+          renderModalInfo(data)
+          
+          modalChartTitle.textContent = `${data.symbol} - ${data.company_name || data.symbol}`
+          modalCompanyInfo.textContent = `${data.sector || 'N/A'} · ${data.industry || 'N/A'}`
+          
+        } catch (error) {
+          showChartStatus(`Error loading chart: ${error.message}`, 'error')
+        }
+      }
+
+      function renderModalInfo(data) {
+        const intrinsicDiff = data.intrinsic_value ? 
+          ((data.current_price - data.intrinsic_value) / data.intrinsic_value * 100).toFixed(2) : null
+        
+        const intrinsicStatus = intrinsicDiff ? (
+          intrinsicDiff > 0 ? `${intrinsicDiff}% overvalued` : `${Math.abs(intrinsicDiff)}% undervalued`
+        ) : 'N/A'
+
+        const rsiLatest = data.rsi.filter(r => r !== null).pop()
+        const rsiStatus = rsiLatest ? (
+          rsiLatest > 70 ? 'Overbought' : rsiLatest < 30 ? 'Oversold' : 'Neutral'
+        ) : 'N/A'
+
+        // Build intrinsic value breakdown tooltip
+        let intrinsicTooltip = 'N/A'
+        if (data.intrinsic_breakdown) {
+          const b = data.intrinsic_breakdown
+          intrinsicTooltip = `DCF Method:\\n` +
+            `Current EPS: $${b.current_eps}\\n` +
+            `Market Cap: $${b.market_cap_billions}B\\n` +
+            `Beta: ${b.beta}\\n` +
+            `Growth Rate: ${b.growth_rate}% (${b.growth_source})\\n` +
+            `Discount Rate: ${b.discount_rate}%\\n` +
+            `  CAPM: ${b.discount_calculation}\\n` +
+            `Years: ${b.years_projected}\\n` +
+            `Terminal Growth: ${b.terminal_growth}%\\n\\n` +
+            `Sample Projections:\\n` +
+            b.sample_years.map(y => `  Year ${y.year}: EPS $${y.eps} → PV $${y.pv}`).join('\\n') +
+            `\\n\\nTerminal Value PV: $${b.terminal_value_pv}\\n` +
+            `Total Intrinsic Value: $${b.total_intrinsic_value}\\n\\n` +
+            `Note: Discount rate uses CAPM model\\n` +
+            `Large caps (>$100B) capped at 12% growth`
+        }
+
+        modalInfoGrid.innerHTML = `
+          <div class="info-card">
+            <div class="info-label">Current Price</div>
+            <div class="info-value">$${data.current_price.toFixed(2)}</div>
+          </div>
+          <div class="info-card" style="cursor:help" title="${intrinsicTooltip}" onclick="alert('${intrinsicTooltip.replace(/\n/g, '\\n')}')">
+            <div class="info-label">Intrinsic Value (DCF) ⓘ</div>
+            <div class="info-value">${data.intrinsic_value ? '$' + data.intrinsic_value.toFixed(2) : 'N/A'}</div>
+            <div class="info-sub">${intrinsicStatus}</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">RSI (14)</div>
+            <div class="info-value">${rsiLatest ? rsiLatest.toFixed(1) : 'N/A'}</div>
+            <div class="info-sub">${rsiStatus}</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Period</div>
+            <div class="info-value">${modalCurrentPeriod.toUpperCase()}</div>
+            <div class="info-sub">${data.dates.length} data points</div>
+          </div>
+        `
+        modalInfoGrid.style.display = 'grid'
+      }
+
+      function renderModalCharts(data) {
+        const ctx = document.getElementById('modal-price-chart').getContext('2d')
+        const rsiCtx = document.getElementById('modal-rsi-chart').getContext('2d')
+
+        // Destroy existing charts
+        if (modalPriceChart) modalPriceChart.destroy()
+        if (modalRsiChart) modalRsiChart.destroy()
+
+        // Get current RSI
+        const rsiLatest = data.rsi.filter(r => r !== null).pop()
+
+        // Price Chart
+        modalPriceChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: data.dates,
+            datasets: [
+              {
+                label: 'Price',
+                data: data.prices,
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.1
+              },
+              {
+                label: 'Bollinger Upper',
+                data: data.bollinger_upper,
+                borderColor: '#dc2626',
+                borderWidth: 1,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+              },
+              {
+                label: 'Bollinger Middle (SMA)',
+                data: data.bollinger_middle,
+                borderColor: '#64748b',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                fill: false
+              },
+              {
+                label: 'Bollinger Lower',
+                data: data.bollinger_lower,
+                borderColor: '#16a34a',
+                borderWidth: 1,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: `${data.symbol} - Stock Price with Bollinger Bands${rsiLatest ? ' | Current RSI: ' + rsiLatest.toFixed(1) : ''}`,
+                font: { size: 14, weight: 'bold' }
+              },
+              legend: {
+                position: 'top',
+                labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    let label = context.dataset.label || ''
+                    if (label) label += ': '
+                    if (context.parsed.y !== null) {
+                      label += '$' + context.parsed.y.toFixed(2)
+                    }
+                    return label
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: false,
+                ticks: {
+                  callback: function(value) {
+                    return '$' + value.toFixed(2)
+                  }
+                }
+              }
+            }
+          }
+        })
+
+        // RSI Chart
+        modalRsiChart = new Chart(rsiCtx, {
+          type: 'line',
+          data: {
+            labels: data.dates,
+            datasets: [
+              {
+                label: 'RSI',
+                data: data.rsi,
+                borderColor: '#7c3aed',
+                backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: true
+              },
+              {
+                label: 'Overbought (70)',
+                data: new Array(data.dates.length).fill(70),
+                borderColor: '#dc2626',
+                borderWidth: 1,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+              },
+              {
+                label: 'Oversold (30)',
+                data: new Array(data.dates.length).fill(30),
+                borderColor: '#16a34a',
+                borderWidth: 1,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: `Relative Strength Index (RSI)${rsiLatest ? ' - Current: ' + rsiLatest.toFixed(1) : ''}`,
+                font: { size: 12, weight: 'bold' }
+              },
+              legend: {
+                position: 'top',
+                labels: { boxWidth: 12, padding: 8, font: { size: 10 } }
+              }
+            },
+            scales: {
+              y: {
+                min: 0,
+                max: 100,
+                ticks: {
+                  stepSize: 10
+                }
+              }
+            }
+          }
+        })
+      }
+
+      // P&L Chart Modal Code
+      let pnlChart = null
+      const pnlModal = document.getElementById('pnl-modal')
+      const pnlModalClose = document.getElementById('pnl-modal-close')
+      const pnlCanvas = document.getElementById('pnl-chart-canvas')
+      const pnlModalTitle = document.getElementById('pnl-modal-title')
+      const pnlModalSubtitle = document.getElementById('pnl-modal-subtitle')
+      const pnlInfoGrid = document.getElementById('pnl-info-grid')
+      const pnlLegend = document.getElementById('pnl-legend')
+
+      pnlModalClose.addEventListener('click', closePnLModal)
+      pnlModal.addEventListener('click', (e) => {
+        if(e.target === pnlModal) closePnLModal()
+      })
+
+      function openPnLModal(strategy) {
+        pnlModal.classList.add('active')
+        document.body.style.overflow = 'hidden'
+        renderPnLChart(strategy)
+      }
+
+      function closePnLModal() {
+        pnlModal.classList.remove('active')
+        document.body.style.overflow = 'auto'
+        if(pnlChart) {
+          pnlChart.destroy()
+          pnlChart = null
+        }
+      }
+
+      // NEW P&L CHART - Shows evolution over time from entry to expiration
+      // TRADITIONAL OPTIONS PAYOFF DIAGRAM
+      // X-axis: Stock Price | Y-axis: P&L | Two lines: Today (dotted) vs At Expiry (solid)
+      function renderPnLChart(s) {
+        console.log('renderPnLChart called with:', s)
+        
+        // Update modal header
+        pnlModalTitle.textContent = `${s.symbol} - ${s.strategy}`
+        pnlModalSubtitle.textContent = `Current: $${fmt2(s.spot)} | Expiry: ${fmtExpiry(s.expiry)} (${s.days_to_expiry} days)`
+
+        // Parse strategy data
+        const spot = Number(s.spot)
+        const credit = Number(s.credit || 0)
+        const shortStrike = parseFloat((s.short_strike || '0').toString().replace(/[pc]/g, '')) || 0
+        const longStrike = parseFloat((s.long_strike || '0').toString().replace(/[pc]/g, '')) || 0
+        const daysToExpiry = Number(s.days_to_expiry || 21)
+        const breakeven = Number(s.breakeven || 0)
+        const maxProfitData = Number(s.max_profit || 0)
+        const maxLossData = Number(s.max_loss || 0)
+        
+        // Determine if credit or debit
+        const isCredit = credit > 0
+        const initialCost = isCredit ? credit : -Math.abs(credit)
+        
+        // Generate stock price range (X-axis): ±30% from current spot
+        const minPrice = spot * 0.70
+        const maxPrice = spot * 1.30
+        const numPoints = 100
+        const priceStep = (maxPrice - minPrice) / numPoints
+        
+        const stockPrices = []
+        const pnlAtExpiry = []
+        const pnlToday = []
+        
+        // Calculate P&L at expiration for a given stock price
+        function calcExpiryPnL(price) {
+          let pnl = 0
+          
+          if(s.strategy === 'Bull Put Spread') {
+            if(price >= shortStrike) {
+              // Both puts expire worthless
+              pnl = credit
+            } else if(price <= longStrike) {
+              // Max loss: both puts ITM
+              pnl = -Math.abs(maxLossData)
+            } else {
+              // Transition: short put ITM, long put OTM
+              pnl = credit - (shortStrike - price)
+            }
+          }
+          else if(s.strategy === 'Bear Call Spread') {
+            if(price <= shortStrike) {
+              // Both calls expire worthless
+              pnl = credit
+            } else if(price >= longStrike) {
+              // Max loss: both calls ITM
+              pnl = -Math.abs(maxLossData)
+            } else {
+              // Transition: short call ITM, long call OTM
+              pnl = credit - (price - shortStrike)
+            }
+          }
+          else if(s.strategy === 'Iron Condor') {
+            const putShort = shortStrike
+            const callShort = longStrike
+            const spreadWidth = Number(s.spread_width || 5)
+            const putLong = putShort - spreadWidth
+            const callLong = callShort + spreadWidth
+            
+            if(price >= putShort && price <= callShort) {
+              // Price in profit zone: all options expire worthless or balanced
+              pnl = credit
+            } else if(price <= putLong) {
+              // Below put spread: max loss
+              pnl = -Math.abs(maxLossData)
+            } else if(price >= callLong) {
+              // Above call spread: max loss
+              pnl = -Math.abs(maxLossData)
+            } else if(price < putShort) {
+              // Put spread transition zone
+              pnl = credit - (putShort - price)
+            } else {
+              // Call spread transition zone
+              pnl = credit - (price - callShort)
+            }
+          }
+          else if(s.strategy === 'Covered Call') {
+            // Stock P&L + Option P&L
+            const stockPnL = price - spot
+            let optionPnL = 0
+            if(price >= shortStrike) {
+              // Call is ITM, we lose (shortStrike - price) but keep premium
+              optionPnL = credit - (price - shortStrike)
+            } else {
+              // Call expires worthless, we keep premium
+              optionPnL = credit
+            }
+            pnl = stockPnL + optionPnL
+          }
+          else if(s.strategy === 'Cash Secured Put') {
+            if(price >= shortStrike) {
+              // Put expires worthless, keep premium
+              pnl = credit
+            } else {
+              // Put is ITM: we buy stock at shortStrike but it's worth less
+              // P&L = premium received - (strike - current price)
+              pnl = credit - (shortStrike - price)
+              // Cap max loss if stock goes to zero
+              if(price <= 0) pnl = Math.max(pnl, -(shortStrike - credit))
+            }
+          }
+          else if(s.strategy === 'Long Call') {
+            const premium = Math.abs(credit)
+            if(price >= shortStrike) {
+              // Call is ITM: intrinsic value minus premium paid
+              pnl = (price - shortStrike) - premium
+            } else {
+              // Call expires worthless: lose full premium
+              pnl = -premium
+            }
+          }
+          else if(s.strategy === 'Bull Call Spread') {
+            const debit = Math.abs(credit)
+            if(price >= longStrike) {
+              // Both calls ITM: max profit
+              pnl = maxProfitData
+            } else if(price <= shortStrike) {
+              // Both calls expire worthless: lose premium
+              pnl = -debit
+            } else {
+              // Transition: long call ITM, short call OTM
+              pnl = (price - shortStrike) - debit
+            }
+          }
+          
+          return pnl
+        }
+        
+        // Generate P&L data for each stock price
+        for(let i = 0; i <= numPoints; i++) {
+          const price = minPrice + (i * priceStep)
+          stockPrices.push(price)
+          
+          // P&L at expiration
+          const expiryPnL = calcExpiryPnL(price)
+          pnlAtExpiry.push(expiryPnL)
+          
+          // P&L today (with time value)
+          const timeRemaining = daysToExpiry / 365
+          const timeFactor = Math.sqrt(timeRemaining)
+          const todayPnL = initialCost + (expiryPnL - initialCost) * (1 - timeFactor * 0.7)
+          pnlToday.push(todayPnL)
+        }
+        
+        // Calculate statistics
+        const maxProfit = Math.max(...pnlAtExpiry)
+        const maxLoss = Math.min(...pnlAtExpiry)
+        
+        // Update info grid
+        pnlInfoGrid.innerHTML = `
+          <div class="info-card">
+            <div class="info-label">Entry Cost</div>
+            <div class="info-value" style="color:${isCredit ? '#16a34a' : '#dc2626'}">${isCredit ? '+' : ''}$${fmt2(Math.abs(initialCost))}</div>
+            <div class="info-sub">${isCredit ? 'Credit received' : 'Debit paid'}</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Current Stock</div>
+            <div class="info-value">$${fmt2(spot)}</div>
+            <div class="info-sub">Today's price</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Breakeven</div>
+            <div class="info-value">$${fmt2(breakeven)}</div>
+            <div class="info-sub">At expiration</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Max Profit</div>
+            <div class="info-value" style="color:#16a34a">+$${fmt2(maxProfit)}</div>
+            <div class="info-sub">Best case</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Max Loss</div>
+            <div class="info-value" style="color:#dc2626">${maxLoss >= 0 ? '+' : ''}$${fmt2(maxLoss)}</div>
+            <div class="info-sub">Worst case</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Days to Expiry</div>
+            <div class="info-value">${daysToExpiry}</div>
+            <div class="info-sub">Time remaining</div>
+          </div>
+        `
+
+        if(pnlChart) pnlChart.destroy()
+
+        const ctx = pnlCanvas.getContext('2d')
+        
+        try {
+          pnlChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: stockPrices.map(p => p.toFixed(2)),
+              datasets: [
+                {
+                  label: 'P&L at Expiry',
+                  data: pnlAtExpiry,
+                  segment: {
+                    borderColor: ctx => ctx.p0.parsed.y >= 0 ? '#16a34a' : '#dc2626'
+                  },
+                  borderColor: '#16a34a',
+                  backgroundColor: 'transparent',
+                  borderWidth: 3,
+                  pointRadius: 0,
+                  fill: false,
+                  tension: 0
+                },
+                {
+                  label: 'P&L Today',
+                  data: pnlToday,
+                  segment: {
+                    borderColor: ctx => ctx.p0.parsed.y >= 0 ? '#10b981' : '#ef4444'
+                  },
+                  borderColor: '#10b981',
+                  backgroundColor: 'transparent',
+                  borderWidth: 2,
+                  pointRadius: 0,
+                  fill: false,
+                  tension: 0.1,
+                  borderDash: [5, 5]
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: {
+                mode: 'index',
+                intersect: false,
+              },
+              plugins: {
+                title: {
+                  display: true,
+                  text: `${s.strategy} - Profit/Loss Diagram`,
+                  font: { size: 16, weight: 'bold' }
+                },
+                legend: {
+                  position: 'top',
+                  labels: { boxWidth: 20, padding: 15, font: { size: 12 } }
+                },
+                tooltip: {
+                  callbacks: {
+                    title: function(context) {
+                      return 'Stock Price: $' + context[0].label
+                    },
+                    label: function(context) {
+                      const val = context.parsed.y
+                      return context.dataset.label + ': ' + (val >= 0 ? '+' : '') + '$' + val.toFixed(2)
+                    },
+                    footer: function(context) {
+                      const stockPrice = parseFloat(context[0].label)
+                      const pnlExpiry = context[0].parsed.y
+                      const pnlToday = context[1].parsed.y
+                      return [
+                        '',
+                        'Stock: $' + stockPrice.toFixed(2),
+                        'Today: ' + (pnlToday >= 0 ? '+' : '') + '$' + pnlToday.toFixed(2),
+                        'At Expiry: ' + (pnlExpiry >= 0 ? '+' : '') + '$' + pnlExpiry.toFixed(2)
+                      ]
+                    }
+                  },
+                  backgroundColor: 'rgba(75,85,99,0.95)',
+                  titleFont: { size: 13, weight: 'bold' },
+                  bodyFont: { size: 12 },
+                  footerFont: { size: 12, weight: 'bold' },
+                  padding: 12
+                }
+              },
+              scales: {
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Stock Price ($)',
+                    font: { size: 13, weight: 'bold' }
+                  },
+                  ticks: {
+                    maxTicksLimit: 15,
+                    callback: function(value, index) {
+                      return '$' + this.getLabelForValue(value)
+                    }
+                  },
+                  grid: {
+                    color: function(context) {
+                      const price = parseFloat(stockPrices[context.index])
+                      if(Math.abs(price - spot) < 0.5) return '#2563eb'
+                      if(Math.abs(price - breakeven) < 0.5) return '#f59e0b'
+                      return '#e5e7eb'
+                    },
+                    lineWidth: function(context) {
+                      const price = parseFloat(stockPrices[context.index])
+                      if(Math.abs(price - spot) < 0.5 || Math.abs(price - breakeven) < 0.5) return 2
+                      return 1
+                    }
+                  }
+                },
+                y: {
+                  title: {
+                    display: true,
+                    text: 'Profit / Loss ($)',
+                    font: { size: 13, weight: 'bold' }
+                  },
+                  ticks: {
+                    callback: function(value) {
+                      return (value >= 0 ? '+' : '') + '$' + value.toFixed(2)
+                    }
+                  },
+                  grid: {
+                    color: function(context) {
+                      if(context.tick.value === 0) return '#000000'
+                      return '#e5e7eb'
+                    },
+                    lineWidth: function(context) {
+                      if(context.tick.value === 0) return 2
+                      return 1
+                    }
+                  }
+                }
+              }
+            },
+            plugins: [{
+              id: 'markers',
+              afterDatasetsDraw: function(chart) {
+                const ctx = chart.ctx
+                const xAxis = chart.scales.x
+                const yAxis = chart.scales.y
+                
+                const spotIndex = stockPrices.findIndex(p => p >= spot)
+                if(spotIndex >= 0) {
+                  const xPos = xAxis.getPixelForValue(spotIndex)
+                  ctx.save()
+                  ctx.strokeStyle = '#2563eb'
+                  ctx.lineWidth = 2
+                  ctx.setLineDash([8, 4])
+                  ctx.beginPath()
+                  ctx.moveTo(xPos, yAxis.top)
+                  ctx.lineTo(xPos, yAxis.bottom)
+                  ctx.stroke()
+                  ctx.restore()
+                  
+                  ctx.save()
+                  ctx.fillStyle = '#2563eb'
+                  ctx.font = 'bold 11px Inter'
+                  ctx.textAlign = 'center'
+                  ctx.fillText('Current: $' + spot.toFixed(2), xPos, yAxis.top + 15)
+                  ctx.restore()
+                }
+                
+                if(breakeven > 0) {
+                  const beIndex = stockPrices.findIndex(p => p >= breakeven)
+                  if(beIndex >= 0) {
+                    const xPos = xAxis.getPixelForValue(beIndex)
+                    ctx.save()
+                    ctx.strokeStyle = '#f59e0b'
+                    ctx.lineWidth = 2
+                    ctx.setLineDash([4, 4])
+                    ctx.beginPath()
+                    ctx.moveTo(xPos, yAxis.top)
+                    ctx.lineTo(xPos, yAxis.bottom)
+                    ctx.stroke()
+                    ctx.restore()
+                    
+                    ctx.save()
+                    ctx.fillStyle = '#f59e0b'
+                    ctx.font = 'bold 11px Inter'
+                    ctx.textAlign = 'center'
+                    ctx.fillText('B/E: $' + breakeven.toFixed(2), xPos, yAxis.top + 30)
+                    ctx.restore()
+                  }
+                }
+              }
+            }]
+          })
+          
+          console.log('P&L chart created')
+          
+        } catch(error) {
+          console.error('Error:', error)
+          pnlInfoGrid.innerHTML += `<div style="color:red; grid-column:1/-1">Error: ${error.message}</div>`
+        }
+
+        pnlLegend.innerHTML = `
+          <div class="pnl-legend-item">
+            <div class="pnl-legend-color" style="background:linear-gradient(to right, #dc2626, #16a34a); height:3px"></div>
+            <span><strong>P&L at Expiry</strong> - Final value (green=profit, red=loss)</span>
+          </div>
+          <div class="pnl-legend-item">
+            <div class="pnl-legend-color" style="background:linear-gradient(to right, #ef4444, #10b981); height:2px"></div>
+            <span><strong>P&L Today</strong> - Current value (dotted, green=profit, red=loss)</span>
+          </div>
+          <div class="pnl-legend-item">
+            <div class="pnl-legend-color" style="background:#000000; height:2px"></div>
+            <span><strong>Zero Line</strong> - Breakeven point</span>
+          </div>
+        `
+      }
+    </script>
+  </body>
+</html>
