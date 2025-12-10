@@ -35,6 +35,9 @@ OAUTH_CONFIGURED = (
     os.environ.get('GOOGLE_CLIENT_SECRET') != 'your_client_secret_here'
 )
 
+# Alpha Vantage API key for fallback data source
+ALPHA_VANTAGE_API_KEY = os.environ.get('ALPHA_VANTAGE_API_KEY', '1YQJPUGPS7HB3J1V')
+
 # OAuth Setup - only if credentials are configured
 if OAUTH_CONFIGURED:
     oauth = OAuth(app)
@@ -47,7 +50,7 @@ if OAUTH_CONFIGURED:
     )
 
 # human-readable data provider/source
-DATA_PROVIDER = 'Yahoo Finance (yfinance)'
+DATA_PROVIDER = 'Yahoo Finance (yfinance) with Alpha Vantage fallback'
 
 # Configuration for scoring model
 WEIGHTS = {
@@ -71,6 +74,26 @@ RISK_FREE_RATE = 0.045  # Current risk-free rate (4.5% - approximate 10Y Treasur
 IV_WEIGHT = 0.7  # Weight for implied volatility in blend
 HV_WEIGHT = 0.3  # Weight for historical volatility in blend
 MIN_VOL_FLOOR = 0.20  # Minimum 20% volatility floor (realistic for stocks)
+
+def get_alpha_vantage_quote(symbol):
+    """Fallback to Alpha Vantage for stock quote data"""
+    try:
+        import requests
+        url = f'https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={ALPHA_VANTAGE_API_KEY}'
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        
+        if 'Global Quote' in data and data['Global Quote']:
+            quote = data['Global Quote']
+            return {
+                'price': float(quote.get('05. price', 0)),
+                'timestamp': quote.get('07. latest trading day', ''),
+                'source': 'Alpha Vantage'
+            }
+        return None
+    except Exception as e:
+        print(f"Alpha Vantage fallback failed: {e}")
+        return None
 
 def safe_yfinance_call(func, *args, **kwargs):
     """Wrapper to handle yfinance API errors with retry logic"""
@@ -708,8 +731,16 @@ def analyze_all_strategies(symbol, max_days=21, top_n=10):
     try:
         t = safe_yfinance_call(yf.Ticker, symbol)
         exps = safe_yfinance_call(lambda: t.options)
-    except Exception as e:
-        return {'symbol': symbol, 'strategies': [], 'error': str(e)}
+    except Exception as yf_error:
+        # Try Alpha Vantage fallback for basic validation
+        av_data = get_alpha_vantage_quote(symbol)
+        if av_data:
+            return {
+                'symbol': symbol, 
+                'strategies': [], 
+                'error': f'Yahoo Finance unavailable. Symbol {symbol} exists (current price: ${av_data["price"]:.2f} via Alpha Vantage) but options data requires Yahoo Finance. Please try again in a few minutes.'
+            }
+        return {'symbol': symbol, 'strategies': [], 'error': str(yf_error)}
     
     if not exps:
         return {'symbol': symbol, 'strategies': [], 'error': 'no options available'}
