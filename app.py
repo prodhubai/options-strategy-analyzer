@@ -80,15 +80,15 @@ def safe_yfinance_call(func, *args, **kwargs):
             return func(*args, **kwargs)
         except (json.JSONDecodeError, ValueError) as e:
             if attempt < max_retries - 1:
-                time.sleep(1)  # Wait 1 second before retry
+                time.sleep(2)  # Wait 2 seconds before retry
                 continue
-            raise Exception(f"Yahoo Finance API error: {str(e)}. Please try again in a moment.")
+            raise Exception(f"Yahoo Finance is temporarily unavailable. Please wait 30 seconds and try again.")
         except Exception as e:
             if attempt < max_retries - 1:
-                time.sleep(1)
+                time.sleep(2)
                 continue
-            raise Exception(f"Data fetch error: {str(e)}")
-    raise Exception("Failed to fetch data after multiple attempts")
+            raise Exception(f"Unable to fetch data: {str(e)}")
+    raise Exception("Yahoo Finance is temporarily unavailable. Please try again shortly.")
 
 def blend_volatility(implied_vol, historical_vol, iv_weight=IV_WEIGHT, hv_weight=HV_WEIGHT):
     """Blend implied and historical volatility with configurable weights"""
