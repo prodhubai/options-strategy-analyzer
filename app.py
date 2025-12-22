@@ -19,16 +19,24 @@ import random
 
 load_dotenv()
 
-# Configure requests session with proper headers for yfinance
-yf_session = requests.Session()
-yf_session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Referer': 'https://finance.yahoo.com/',
-    'Origin': 'https://finance.yahoo.com'
-})
+# Try to use curl_cffi for better Yahoo Finance compatibility
+try:
+    from curl_cffi import requests as curl_requests
+    # Create session with browser impersonation
+    yf_session = curl_requests.Session(impersonate="chrome120")
+    print("Using curl_cffi for enhanced Yahoo Finance compatibility")
+except ImportError:
+    # Fallback to regular requests
+    yf_session = requests.Session()
+    yf_session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://finance.yahoo.com/',
+        'Origin': 'https://finance.yahoo.com'
+    })
+    print("Using standard requests (curl_cffi not available)")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -124,8 +132,11 @@ def safe_yfinance_call(func, *args, timeout=30, use_session=True, **kwargs):
     
     for attempt in range(max_retries):
         try:
-            # Exponential backoff with jitter
-            if attempt > 0:
+            # Add small random delay even on first attempt to look more human
+            if attempt == 0:
+                time.sleep(random.uniform(0.1, 0.5))
+            elif attempt > 0:
+                # Exponential backoff with jitter for retries
                 delay = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 1)
                 delay = min(delay, 15)  # Cap at 15 seconds
                 print(f"Retrying after {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
