@@ -14,8 +14,16 @@ import time
 import json
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 import signal
+import requests
+import random
 
 load_dotenv()
+
+# Configure yfinance with proper user agent to avoid rate limiting
+yf.set_tz_cache_location(None)  # Disable timezone cache
+import requests
+session = requests.Session()
+session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -99,40 +107,60 @@ def get_alpha_vantage_quote(symbol):
 
 def safe_yfinance_call(func, *args, timeout=30, **kwargs):
     """Wrapper to handle yfinance API errors with retry logic and timeout"""
-    max_retries = 2  # Reduced from 3 to fail faster
+    import random
+    max_retries = 5  # Increased from 3 to 5
+    base_delay = 2
     
     def _execute():
         return func(*args, **kwargs)
     
     for attempt in range(max_retries):
         try:
+            # Exponential backoff with jitter
+            if attempt > 0:
+                delay = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 1)
+                delay = min(delay, 15)  # Cap at 15 seconds
+                print(f"Retrying after {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
+                time.sleep(delay)
+            
             # Use ThreadPoolExecutor for timeout
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(_execute)
                 try:
                     result = future.result(timeout=timeout)
+                    if attempt > 0:
+                        print(f"Success on attempt {attempt + 1}")
                     return result
                 except FuturesTimeoutError:
                     print(f"Timeout on attempt {attempt + 1}")
                     if attempt < max_retries - 1:
-                        time.sleep(1)
                         continue
-                    raise Exception(f"Request timed out after {timeout} seconds. Yahoo Finance may be down.")
+                    raise Exception(f"Request timed out after {timeout} seconds. Yahoo Finance may be experiencing high load.")
         except (json.JSONDecodeError, ValueError) as e:
             print(f"JSON error on attempt {attempt + 1}: {e}")
             if attempt < max_retries - 1:
-                time.sleep(1)
                 continue
-            raise Exception(f"Yahoo Finance returned invalid data. Please try again in a minute.")
+            raise Exception(f"Yahoo Finance returned invalid data. Service may be temporarily unavailable.")
         except Exception as e:
             error_str = str(e)
             print(f"Error on attempt {attempt + 1}: {error_str}")
+            
+            # Check for common transient errors
+            transient_errors = ['timed out', 'timeout', 'connection', 'reset', '429', 'rate limit', 'too many requests']
+            is_transient = any(err in error_str.lower() for err in transient_errors)
+            
+            if is_transient and attempt < max_retries - 1:
+                continue
+            
             if attempt < max_retries - 1:
                 time.sleep(1)
                 continue
-            # If we have a specific error message, return it
+            
+            # Final attempt failed
             if "timed out" in error_str.lower() or "timeout" in error_str.lower():
-                raise Exception(f"Yahoo Finance is not responding. Please try again in 1-2 minutes.")
+                raise Exception(f"Yahoo Finance is not responding after {max_retries} attempts. Please try again in 2-3 minutes.")
+            elif is_transient:
+                raise Exception(f"Yahoo Finance rate limit reached. Please wait 1-2 minutes before trying again.")
             raise Exception(f"Unable to fetch data: {error_str}")
     
     raise Exception("Yahoo Finance is temporarily unavailable. Please try again shortly.")
@@ -753,21 +781,37 @@ def analyze_all_strategies(symbol, max_days=21, top_n=10):
     Returns top 5 opportunities ranked by composite score.
     """
     try:
-        t = safe_yfinance_call(yf.Ticker, symbol)
-        exps = safe_yfinance_call(lambda: t.options)
+        # First try to get basic ticker info with longer timeout
+        t = safe_yfinance_call(yf.Ticker, symbol, timeout=30)
+        
+        # Then try to get options with retries
+        exps = safe_yfinance_call(lambda: t.options, timeout=30)
+        
+        if not exps:
+            raise Exception('No options available for this symbol')
+            
     except Exception as yf_error:
+        error_msg = str(yf_error)
+        
         # Try Alpha Vantage fallback for basic validation
         av_data = get_alpha_vantage_quote(symbol)
         if av_data:
-            return {
-                'symbol': symbol, 
-                'strategies': [], 
-                'error': f'Yahoo Finance unavailable. Symbol {symbol} exists (current price: ${av_data["price"]:.2f} via Alpha Vantage) but options data requires Yahoo Finance. Please try again in a few minutes.'
-            }
-        return {'symbol': symbol, 'strategies': [], 'error': str(yf_error)}
-    
-    if not exps:
-        return {'symbol': symbol, 'strategies': [], 'error': 'no options available'}
+            # More helpful error message
+            if 'rate limit' in error_msg.lower() or '429' in error_msg:
+                return {
+                    'symbol': symbol, 
+                    'strategies': [], 
+                    'error': f'Yahoo Finance rate limit reached. Symbol {symbol} verified (${av_data["price"]:.2f}). Please wait 1-2 minutes and try again.'
+                }
+            else:
+                return {
+                    'symbol': symbol, 
+                    'strategies': [], 
+                    'error': f'Yahoo Finance temporarily unavailable. Symbol {symbol} verified (${av_data["price"]:.2f}). Please try again in a moment.'
+                }
+        
+        # Symbol doesn't exist or complete failure
+        return {'symbol': symbol, 'strategies': [], 'error': error_msg}
     
     # Filter expirations within max_days (minimum 1 day to avoid same-day expiries)
     today = date.today()
