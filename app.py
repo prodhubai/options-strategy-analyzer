@@ -19,11 +19,16 @@ import random
 
 load_dotenv()
 
-# Configure yfinance with proper user agent to avoid rate limiting
-yf.set_tz_cache_location(None)  # Disable timezone cache
-import requests
-session = requests.Session()
-session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+# Configure requests session with proper headers for yfinance
+yf_session = requests.Session()
+yf_session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Referer': 'https://finance.yahoo.com/',
+    'Origin': 'https://finance.yahoo.com'
+})
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -105,13 +110,16 @@ def get_alpha_vantage_quote(symbol):
         print(f"Alpha Vantage fallback failed: {e}")
         return None
 
-def safe_yfinance_call(func, *args, timeout=30, **kwargs):
+def safe_yfinance_call(func, *args, timeout=30, use_session=True, **kwargs):
     """Wrapper to handle yfinance API errors with retry logic and timeout"""
     import random
-    max_retries = 5  # Increased from 3 to 5
+    max_retries = 5
     base_delay = 2
     
     def _execute():
+        # If creating a Ticker, pass the session
+        if func == yf.Ticker and use_session:
+            return func(*args, session=yf_session, **kwargs)
         return func(*args, **kwargs)
     
     for attempt in range(max_retries):
@@ -137,7 +145,16 @@ def safe_yfinance_call(func, *args, timeout=30, **kwargs):
                         continue
                     raise Exception(f"Request timed out after {timeout} seconds. Yahoo Finance may be experiencing high load.")
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"JSON error on attempt {attempt + 1}: {e}")
+            error_msg = str(e)
+            print(f"JSON/Parse error on attempt {attempt + 1}: {error_msg}")
+            
+            # Check if it's an HTML response (common when blocked)
+            if 'Unexpected token' in error_msg or '<' in error_msg[:20]:
+                print("Received HTML instead of JSON - likely blocked or rate limited")
+                if attempt < max_retries - 1:
+                    continue
+                raise Exception(f"Yahoo Finance is blocking requests. Please wait 2-3 minutes and try again.")
+            
             if attempt < max_retries - 1:
                 continue
             raise Exception(f"Yahoo Finance returned invalid data. Service may be temporarily unavailable.")
@@ -145,14 +162,23 @@ def safe_yfinance_call(func, *args, timeout=30, **kwargs):
             error_str = str(e)
             print(f"Error on attempt {attempt + 1}: {error_str}")
             
+            # Check for HTML response in error message
+            if 'Unexpected token' in error_str or '<!DOCTYPE' in error_str or '<html' in error_str.lower():
+                print("Detected HTML response in error - Yahoo Finance blocking request")
+                if attempt < max_retries - 1:
+                    continue
+                raise Exception(f"Yahoo Finance temporarily blocked requests. Wait 2-3 minutes and try again.")
+            
             # Check for common transient errors
-            transient_errors = ['timed out', 'timeout', 'connection', 'reset', '429', 'rate limit', 'too many requests']
+            transient_errors = ['timed out', 'timeout', 'connection', 'reset', '429', 'rate limit', 'too many requests', 'no data found']
             is_transient = any(err in error_str.lower() for err in transient_errors)
             
             if is_transient and attempt < max_retries - 1:
                 continue
             
             if attempt < max_retries - 1:
+                time.sleep(1)
+                continue
                 time.sleep(1)
                 continue
             
